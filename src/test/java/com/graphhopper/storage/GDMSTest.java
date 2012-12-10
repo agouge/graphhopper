@@ -15,6 +15,8 @@
  */
 package com.graphhopper.storage;
 
+import com.graphhopper.routing.DijkstraSimple;
+import com.graphhopper.routing.Path;
 import com.graphhopper.util.EdgeIterator;
 import com.graphhopper.util.Helper;
 import java.io.BufferedReader;
@@ -26,166 +28,11 @@ import java.util.Scanner;
 import org.junit.Test;
 
 /**
+ * A class to test {@link GDMSGraphStorage}.
  *
  * @author Adam Gouge
  */
-public class GDMSTest extends AbstractGraphTester {
-
-    /**
-     * Start node column name.
-     */
-    private static final String START_NODE = "start_node";
-    /**
-     * End node column name.
-     */
-    private static final String END_NODE = "end_node";
-    /**
-     * Weight column name.
-     */
-    private static final String WEIGHT = "length"; // Graph2D
-//    private static final String WEIGHT = "weight"; // Département
-    /**
-     * Start node index.
-     */
-    private int startNodeIndex = -1;
-    /**
-     * End node index.
-     */
-    private int endNodeIndex = -1;
-    /**
-     * Weight index.
-     */
-    private int weightIndex = -1;
-
-    /**
-     * Allocates space for the graph data structure.
-     *
-     * @param size The node count.
-     *
-     * @return The newly created {@link LevelGraph}.
-     */
-    @Override
-    LevelGraph createGraph(int size) {
-        LevelGraphStorage g =
-                new LevelGraphStorage(
-                new RAMDirectory(
-                "levelgraph",
-                false));
-        g.createNew(size);
-        return g;
-    }
-
-    /**
-     * Gets a {@link Scanner} on the given csv file that will be used to parse
-     * the file.
-     *
-     * @param path The path of the csv file.
-     *
-     * @return The {@link Scanner}.
-     *
-     * @throws FileNotFoundException
-     */
-    public Scanner getScannerOnCSVFile(String path) throws FileNotFoundException {
-        // Open the edges file.
-        File edgesFile = new File(path);
-        // We use a BufferedReader for efficiency.
-        BufferedReader bufferedReader =
-                new BufferedReader(
-                new FileReader(
-                edgesFile));
-        // Get a scanner on the edges file.
-        Scanner scanner = new Scanner(bufferedReader);
-        return scanner;
-    }
-
-    /**
-     * Initialize the start node, end node, and weight indices.
-     *
-     * @param scanner The scanner that will read the first line of the csv file.
-     */
-    public void initializeIndices(Scanner scanner) {
-        String[] parts = scanner.nextLine().split(";");
-        for (int i = 0; i < parts.length; i++) {
-            // TODO: Make sure all indices are loaded correctly.
-            // Have to get rid of the quotation marks.
-            if (parts[i].replace("\"",
-                    "").equals(START_NODE)) {
-                startNodeIndex = i;
-            } else if (parts[i].replace("\"",
-                    "").equals(END_NODE)) {
-                endNodeIndex = i;
-            } else if (parts[i].replace("\"",
-                    "").equals(WEIGHT)) {
-                weightIndex = i;
-            }
-        }
-//        System.out.println("startNodeIndex: " + startNodeIndex
-//                + ", endNodeIndex: " + endNodeIndex
-//                + ", lengthIndex: " + lengthIndex);
-    }
-
-    /**
-     * Creates the folder in which to store the graph data structure.
-     *
-     * @return The folder.
-     *
-     * @throws IOException
-     */
-    public File createStorageDirectory() throws IOException {
-        File folder = new File("./target/GDMSGraph");
-        Helper.deleteDir(folder);
-        boolean madeDirectories = folder.mkdirs();
-        if (madeDirectories) {
-            System.out.println(folder.getCanonicalPath()
-                    + " created");
-        } else {
-            System.out.println("Unable to create "
-                    + folder.getCanonicalPath());
-        }
-        return folder;
-    }
-
-    /**
-     * Loads the edges from the csv file into the given graph.
-     *
-     * @param scanner             The scanner that will parse the csv file.
-     * @param graph               The graph to which the edges are to be added.
-     * @param preserveOrientation {@code true} if the edges are considered to be
-     *                            bidirectional. {@code false} if the orientation
-     *                            of the edges is to be preserved.
-     */
-    public void loadEdges(Scanner scanner, Graph graph,
-            boolean bothDirections) {
-        int startNode, endNode;
-        double length;
-        while (scanner.hasNextLine()) {
-            String[] parts = scanner.nextLine().split(";");
-            // Have to get rid of the quotation marks.
-            startNode = Integer.
-                    parseInt(parts[startNodeIndex].replace("\"", ""));
-            endNode = Integer.parseInt(parts[endNodeIndex].replace("\"", ""));
-            length = Double.parseDouble(parts[weightIndex].replace("\"", ""));
-//            System.out.println("startNode: " + startNode
-//                + ", endNode: " + endNode
-//                + ", length: " + length);
-            graph.edge(startNode, endNode, length, bothDirections);
-        }
-    }
-
-    /**
-     * Prints out the edges of the given graph.
-     *
-     * @param graph The graph whose edges are to be printed.
-     */
-    public void printEdges(Graph graph) {
-        EdgeIterator edgeIterator = graph.getAllEdges();
-        while (edgeIterator.next()) {
-            System.out.println("EdgeID: " + edgeIterator.edge()
-                    + ", " + START_NODE + " " + edgeIterator.fromNode()
-                    + ", " + END_NODE + " " + edgeIterator.node()
-                    + ", " + WEIGHT + " " + edgeIterator.distance());
-        }
-    }
+public class GDMSTest {
 
     /**
      * Loads a GDMS graph produced in OrbisGIS as the {@code output.edges} table
@@ -193,41 +40,58 @@ public class GDMSTest extends AbstractGraphTester {
      *
      * @throws IOException
      */
-    @Test
-    public void testLoadGDMSGraph() throws IOException {
+    public void testLoadGDMSGraph(String graphDirectory, String csvFile,
+            String weightField, boolean bothDirections) throws IOException {
 
-        Scanner scanner = getScannerOnCSVFile("./files/graph2D.edges.csv");
-//        Scanner scanner = getScannerOnCSVFile(
-//                "./files/nantes_metropole_1_edges.csv"); // Département
+        // Initiate a  object using ramdirectory storage.
+        GDMSGraphStorage graph =
+                new GDMSGraphStorage(
+                new RAMDirectory(
+                graphDirectory,
+                true), // true that we can write the graph to disk.
+                weightField);
+        if (graph.loadExisting()) {
+            System.out.println("Loaded a previously created graph. ");
+        } else {
+            System.out.println("Creating a graph from CSV. ");
+            Scanner scanner = graph.getScannerOnCSVFile(csvFile);
+//            Scanner scanner = getScannerOnCSVFile(
+//                    "./files/nantes_metropole_1_edges.csv"); // Département
 
-        // Initialize the indices of the start_node, end_node, and length.
-        initializeIndices(scanner);
+            // Initialize the indices of the start_node, end_node, and length.
+            graph.initializeIndices(scanner);
 
-        // INITIATE A LEVELGRAPH OBJECT USING RAMDIRECTORY STORAGE.
-        LevelGraphStorage levelGraphStorage =
-                new LevelGraphStorage(
-                new RAMDirectory(createStorageDirectory().
-                getAbsolutePath(),
-                true));
-        // Create the LevelGraph. 
-        // TODO: How big does the nodeCount need to be?
-        levelGraphStorage.createNew(10); // TODO: Returns a GraphStorage!
+            // Create the LevelGraph. 
+            // TODO: How big does the nodeCount need to be?
+            graph.createNew(10); // TODO: Returns a GraphStorage!
 
-        // Load the edges from the input file into the levelgraph.
-        // Put true iff the edges are bidirectional.
-        loadEdges(scanner, levelGraphStorage, false);
+            // Load the edges from the input file into the levelgraph.
+            // Put true iff the edges are bidirectional.
+            graph.loadEdges(scanner, graph, bothDirections);
+            scanner.close();
+        }
 
         // Print out the edges.
-        printEdges(levelGraphStorage);
+        graph.printEdges();
 
         // Shortest path calculations.
-//        Path path = new DijkstraSimple(levelGraphStorage).calcPath(3, 4);
-//        System.out.println(path.toDetailsString());
+        Path path = new DijkstraSimple(graph).calcPath(2, 1);
+        System.out.println(path.toDetailsString());
 
         // Write to disk.
-        levelGraphStorage.flush();
+        graph.flush();
         // TODO: close() also calls flush(), so flush is called TWO TIMES!
-        levelGraphStorage.close();
-        scanner.close();
+        graph.close();
+    }
+
+    /**
+     * Tests loading a 2D graph with orientation preserved.
+     *
+     * @throws IOException
+     */
+    @Test
+    public void testLoadGraph2D() throws IOException {
+        testLoadGDMSGraph("./target/GDMSGraph",
+                "./files/graph2D.edges.csv", "length", false);
     }
 }
