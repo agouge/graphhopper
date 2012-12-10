@@ -42,7 +42,8 @@ public class GDMSTest extends AbstractGraphTester {
     /**
      * Weight column name.
      */
-    private static final String WEIGHT = "length";
+    private static final String WEIGHT = "length"; // Graph2D
+//    private static final String WEIGHT = "weight"; // Département
     /**
      * Start node index.
      */
@@ -124,7 +125,7 @@ public class GDMSTest extends AbstractGraphTester {
     }
 
     /**
-     * Creates the folder in which to store the graph data structre.
+     * Creates the folder in which to store the graph data structure.
      *
      * @return The folder.
      *
@@ -149,12 +150,12 @@ public class GDMSTest extends AbstractGraphTester {
      *
      * @param scanner             The scanner that will parse the csv file.
      * @param graph               The graph to which the edges are to be added.
-     * @param preserveOrientation {@code true} if the orientation of the edgse
-     *                            is to be preserved. {@code false} if the edges
-     *                            are considered to be bidirectional.
+     * @param preserveOrientation {@code true} if the edges are considered to be
+     *                            bidirectional. {@code false} if the orientation
+     *                            of the edges is to be preserved.
      */
     public void loadEdges(Scanner scanner, Graph graph,
-            boolean preserveOrientation) {
+            boolean bothDirections) {
         int startNode, endNode;
         double length;
         while (scanner.hasNextLine()) {
@@ -167,7 +168,7 @@ public class GDMSTest extends AbstractGraphTester {
 //            System.out.println("startNode: " + startNode
 //                + ", endNode: " + endNode
 //                + ", length: " + length);
-            graph.edge(startNode, endNode, length, preserveOrientation);
+            graph.edge(startNode, endNode, length, bothDirections);
         }
     }
 
@@ -187,9 +188,8 @@ public class GDMSTest extends AbstractGraphTester {
     }
 
     /**
-     * Loads a GDMS graph produced in OrbisGIS as the 
-     * {@code output.edges} table given by {@code ST_Graph}
-     * into a GraphHopper {@link LevelGraphStorage}.
+     * Loads a GDMS graph produced in OrbisGIS as the {@code output.edges} table
+     * given by {@code ST_Graph} into a GraphHopper {@link LevelGraphStorage}.
      *
      * @throws IOException
      */
@@ -197,6 +197,8 @@ public class GDMSTest extends AbstractGraphTester {
     public void testLoadGDMSGraph() throws IOException {
 
         Scanner scanner = getScannerOnCSVFile("./files/graph2D.edges.csv");
+//        Scanner scanner = getScannerOnCSVFile(
+//                "./files/nantes_metropole_1_edges.csv"); // Département
 
         // Initialize the indices of the start_node, end_node, and length.
         initializeIndices(scanner);
@@ -212,10 +214,15 @@ public class GDMSTest extends AbstractGraphTester {
         levelGraphStorage.createNew(10); // TODO: Returns a GraphStorage!
 
         // Load the edges from the input file into the levelgraph.
-        loadEdges(scanner, levelGraphStorage, true);
+        // Put true iff the edges are bidirectional.
+        loadEdges(scanner, levelGraphStorage, false);
 
         // Print out the edges.
         printEdges(levelGraphStorage);
+
+        // Shortest path calculations.
+//        Path path = new DijkstraSimple(levelGraphStorage).calcPath(3, 4);
+//        System.out.println(path.toDetailsString());
 
         // Write to disk.
         levelGraphStorage.flush();
