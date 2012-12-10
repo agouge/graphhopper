@@ -17,12 +17,9 @@ package com.graphhopper.storage;
 
 import com.graphhopper.routing.DijkstraSimple;
 import com.graphhopper.routing.Path;
-import com.graphhopper.util.EdgeIterator;
-import com.graphhopper.util.Helper;
-import java.io.BufferedReader;
-import java.io.File;
-import java.io.FileNotFoundException;
-import java.io.FileReader;
+import com.graphhopper.routing.ch.PrepareContractionHierarchies;
+import com.graphhopper.routing.util.ShortestCarCalc;
+import com.graphhopper.util.GraphUtility;
 import java.io.IOException;
 import java.util.Scanner;
 import org.junit.Test;
@@ -40,10 +37,10 @@ public class GDMSTest {
      *
      * @throws IOException
      */
-    public void testLoadGDMSGraph(String graphDirectory, String csvFile,
+    public GDMSGraphStorage loadGDMSGraph(String graphDirectory, String csvFile,
             String weightField, boolean bothDirections) throws IOException {
 
-        // Initiate a  object using ramdirectory storage.
+        // Initiate a graph object using RAMDirectory storage.
         GDMSGraphStorage graph =
                 new GDMSGraphStorage(
                 new RAMDirectory(
@@ -55,8 +52,6 @@ public class GDMSTest {
         } else {
             System.out.println("Creating a graph from CSV. ");
             Scanner scanner = graph.getScannerOnCSVFile(csvFile);
-//            Scanner scanner = getScannerOnCSVFile(
-//                    "./files/nantes_metropole_1_edges.csv"); // Département
 
             // Initialize the indices of the start_node, end_node, and length.
             graph.initializeIndices(scanner);
@@ -70,18 +65,24 @@ public class GDMSTest {
             graph.loadEdges(scanner, graph, bothDirections);
             scanner.close();
         }
+        return graph;
+    }
 
-        // Print out the edges.
-        graph.printEdges();
-
-        // Shortest path calculations.
-        Path path = new DijkstraSimple(graph).calcPath(2, 1);
-        System.out.println(path.toDetailsString());
-
-        // Write to disk.
-        graph.flush();
-        // TODO: close() also calls flush(), so flush is called TWO TIMES!
-        graph.close();
+    /**
+     * Calculates the shortest path between two nodes and prints out the time it
+     * took to calculate this path.
+     *
+     * @param ds        Used to calculate the shortest path.
+     * @param startNode The start node.
+     * @param endNode   The end node.
+     */
+    public void timeShortestPathCalculation(DijkstraSimple ds, int startNode,
+            int endNode) {
+        long start = System.currentTimeMillis();
+        Path path = ds.calcPath(startNode, endNode);
+        long stop = System.currentTimeMillis();
+        long time = stop - start;
+        System.out.println("Time: " + time + " ms, " + path.toDetailsString());
     }
 
     /**
@@ -90,8 +91,70 @@ public class GDMSTest {
      * @throws IOException
      */
     @Test
-    public void testLoadGraph2D() throws IOException {
-        testLoadGDMSGraph("./target/GDMSGraph",
+    public void testLoadGraph2DOriented() throws IOException {
+        GDMSGraphStorage graph = loadGDMSGraph("./target/Graph2D",
+                "./files/graph2D.edges.csv", "length", false);
+        // Print out the edges.
+        graph.printEdges();
+//        PrepareTowerNodesShortcutsTest.printEdges(graph);
+    }
+
+//    /**
+//     * Tests loading the Loire Atlantique road network where all roads are
+//     * considered bidirectional.
+//     *
+//     * @throws IOException
+//     */
+//    @Test
+//    public void testLoadGraphLoireAtlantiqueBidirectional() throws IOException {
+//        GDMSGraphStorage graph = loadGDMSGraph("./target/GraphLoireAtlantique",
+//                "./files/loire_atlantique_1_edges.csv", "weight", true);
+//        // Shortest path calculations.
+//        DijkstraSimple ds = new DijkstraSimple(graph);
+//        timeShortestPathCalculation(ds, 20384, 59847);
+//        timeShortestPathCalculation(ds, 84576, 37548);
+//        timeShortestPathCalculation(ds, 42156, 17542);
+//    }
+
+    public GDMSGraphStorage prepareContractionHierarchies(String graphDirectory, String csvFile,
+            String weightField, boolean bothDirections) throws IOException {
+
+        // Initiate a graph object using RAMDirectory storage.
+        GDMSGraphStorage graph = loadGDMSGraph(graphDirectory,
+                csvFile, weightField, bothDirections);
+
+        PrepareContractionHierarchies ch = new PrepareContractionHierarchies();
+        ch.setGraph(graph);
+        ch.setType(ShortestCarCalc.DEFAULT); // By default.
+        if (!ch.isPrepared()) {
+            System.out.println("Edges before CH: " + GraphUtility.count(graph.
+                    getAllEdges()));
+            System.out.println("Preparing contraction hierachies. ");
+            ch.doWork();
+        } else { // TODO: This is never returned.
+            System.out.println("Already prepared contraction hierachies! ");
+        }
+        System.out.println("Edges after CH: " + GraphUtility.count(graph.
+                getAllEdges()));
+
+        // Write to disk. This overwrites the original graph with the 
+        // graph constructed using contraction hiearchies.
+        System.out.println("Writing changes to disk. ");
+        graph.flush();
+        // TODO: close() also calls flush(), so flush is called TWO TIMES!
+//        graph.close();
+        return graph;
+    }
+    
+    @Test
+    public void testContractionHierarchiesGraph2DOriented() throws IOException {
+        GDMSGraphStorage graph = prepareContractionHierarchies("./target/Graph2D",
                 "./files/graph2D.edges.csv", "length", false);
     }
+    
+//    @Test
+//    public void testContractionHierarchiesGraphLoireAtlantiqueBidirectional() throws IOException {
+//        GDMSGraphStorage graph = prepareContractionHierarchies("./target/GraphLoireAtlantique",
+//                "./files/loire_atlantique_1_edges.csv", "weight", true);
+//    }
 }
