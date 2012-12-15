@@ -93,4 +93,9 @@ public interface Graph {
      * Performs optimization routines like deletion or node rearrangements.
      */
     void optimize();
+
+    /**
+     * Print out the edges of this graph.
+     */
+    void printEdges();
 }

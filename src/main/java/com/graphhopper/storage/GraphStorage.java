@@ -305,6 +305,23 @@ public class GraphStorage implements WritableGraph, Storable {
         return new SingleEdge(edgePointer);
     }
 
+    /**
+     * Print out the edges of this graph, including the start node, end node,
+     * distance, and whether the edge is bidirectional.
+     */
+    @Override
+    public void printEdges() {
+        EdgeWriteIterator iter = this.getAllEdges();
+        while (iter.next()) {
+            System.out.println(
+                    "Start node: " + iter.fromNode()
+                    + ", End node: " + iter.node()
+                    + ", Distance: " + (float) iter.distance()
+                    + ", Both directions:" + CarStreetType.isBoth(iter.
+                    flags()));
+        }
+    }
+
     // TODO create a new constructor and reuse EdgeIterable -> new EdgeIterable(edgeId, END node)
     protected class SingleEdge implements EdgeWriteIterator {
 

@@ -135,6 +135,27 @@ public class LevelGraphStorage extends GraphStorage implements LevelGraph {
         return new AllEdgeSkipIterator();
     }
 
+    /**
+     * Print out the edges of this graph, including the start node, end node,
+     * distance, whether the edges is skipped, the from and to levels,
+     * and whether the edges is bidirectional.
+     */
+    @Override
+    public void printEdges() {
+        EdgeSkipIterator iter = this.getAllEdges();
+        while (iter.next()) {
+            System.out.println(
+                    "Start node: " + iter.fromNode()
+                    + ", End node: " + iter.node()
+                    + ", Distance: " + (float) iter.distance()
+                    + ", Skip: " + iter.skippedEdge()
+                    + ", Level: " + this.getLevel(iter.fromNode())
+                    + "-->" + this.getLevel(iter.node())
+                    + ", Both directions: "
+                    + CarStreetType.isBoth(iter.flags()));
+        }
+    }
+
     public class AllEdgeSkipIterator extends AllEdgeIterator implements EdgeSkipIterator {
 
         @Override public void skippedEdge(int node) {
