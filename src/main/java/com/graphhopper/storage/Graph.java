@@ -17,6 +17,7 @@ package com.graphhopper.storage;
 
 import com.graphhopper.util.EdgeIterator;
 import com.graphhopper.util.shapes.BBox;
+import gnu.trove.set.hash.TIntHashSet;
 
 /**
  * An interface to represent a (geo) graph - suited for efficient storage as it can be requested via
@@ -98,4 +99,11 @@ public interface Graph {
      * Print out the edges of this graph.
      */
     void printEdges();
+    
+    /**
+     * Return the set of nodes of this graph.
+     *
+     * @return The set of nodes of this graph.
+     */
+    TIntHashSet nodeSet();
 }

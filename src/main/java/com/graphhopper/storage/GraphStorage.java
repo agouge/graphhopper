@@ -24,6 +24,7 @@ import com.graphhopper.util.GraphUtility;
 import com.graphhopper.util.Helper;
 import com.graphhopper.util.shapes.BBox;
 import gnu.trove.map.hash.TIntIntHashMap;
+import gnu.trove.set.hash.TIntHashSet;
 
 /**
  * The main implementation which handles nodes and edges file format. It can be used with different
@@ -320,6 +321,25 @@ public class GraphStorage implements WritableGraph, Storable {
                     + ", Both directions:" + CarStreetType.isBoth(iter.
                     flags()));
         }
+    }
+
+    /**
+     * Returns a {@link TIntHashSet} of nodes of this graph.
+     *
+     * @return a {@link TIntHashSet} of nodes of this graph.
+     */
+    @Override
+    public TIntHashSet nodeSet() {
+        // Initialize the Set.
+        TIntHashSet nodeSet = new TIntHashSet();
+        // Get all the edges.
+        EdgeIterator iter = getAllEdges();
+        // Add each source and destination node to the set.
+        while (iter.next()) {
+            nodeSet.add(iter.fromNode());
+            nodeSet.add(iter.node());
+        }
+        return nodeSet;
     }
 
     // TODO create a new constructor and reuse EdgeIterable -> new EdgeIterable(edgeId, END node)
