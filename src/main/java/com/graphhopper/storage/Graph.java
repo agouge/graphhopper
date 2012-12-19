@@ -16,12 +16,13 @@
 package com.graphhopper.storage;
 
 import com.graphhopper.util.EdgeIterator;
+import com.graphhopper.util.EdgeWriteIterator;
 import com.graphhopper.util.shapes.BBox;
 import gnu.trove.set.hash.TIntHashSet;
 
 /**
  * An interface to represent a (geo) graph - suited for efficient storage as it can be requested via
- * ids. Querying via lat,lon can be done via with a Location2IDIndex implementation
+ * ids. Querying via lat,lon can be done via with a Location2IDIndex implementation.
  *
  * @author Peter Karich,
  */
@@ -63,18 +64,18 @@ public interface Graph {
      * be used as the end node.
      * @throws IllegalStateException if edgeId is not valid
      */
-    EdgeIterator getEdgeProps(int edgeId, int endNode);
+    EdgeWriteIterator getEdgeProps(int edgeId, int endNode);
 
-    EdgeIterator getAllEdges();
+    EdgeWriteIterator getAllEdges();
 
     /**
      * Returns an iterator which makes it possible to traverse all edges of the specified node
      * index. Hint: use GraphUtility to go straight to certain neighbor nodes. Hint: edges with both
      * directions will returned only once!
      */
-    EdgeIterator getEdges(int index);
+    EdgeWriteIterator getEdges(int index);
 
-    EdgeIterator getIncoming(int index);
+    EdgeWriteIterator getIncoming(int index);
 
     EdgeIterator getOutgoing(int index);
 
@@ -88,7 +89,7 @@ public interface Graph {
      */
     void markNodeDeleted(int index);
 
-    boolean isDeleted(int index);
+    boolean isNodeDeleted(int index);
 
     /**
      * Performs optimization routines like deletion or node rearrangements.

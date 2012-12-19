@@ -17,14 +17,17 @@ package com.graphhopper.util;
 
 /**
  * Iterates through all edges of one node. Avoids object creation in-between via direct access
- * methods. These methods can be implemented as lazy fetching but often this will be avoid to "fetch
- * the properties as a whole" (benefits for transactions, locks, etc)
+ * methods.
  *
  * Usage:
  * <pre>
  * // calls to iter.node(), distance() without next() will cause undefined behaviour
+ * EdgeIterator iter = graph.getOutgoing(nodeId);
+ * // or similar
+ * EdgeIterator iter = graph.getIncoming(nodeId);
  * while(iter.next()) {
- *   int nodeId = iter.node();
+ *   int baseNodeId = iter.baseNode(); // equal to nodeId
+ *   int outerNodeId = iter.node();
  *   ...
  * }
  *
@@ -38,17 +41,24 @@ public interface EdgeIterator {
     boolean next();
 
     /**
-     * @return the edge id of the current edge
+     * @return the edge id of the current edge. Although the current implementation uses an index
+     * starting from 1, do not make any assumptions about it.
      */
     int edge();
 
     /**
-     * @return the node id of the origin node. Identical for all edges of this iterator.
+     * If you retrieve edges via "edgeIterator = graph.getXY(nodeId)" then the returned node is
+     * identical to nodeId. Often only used instead of nodeId for convenience reasons. Do not
+     * confuse this with <i>source</i> node of a directed edge.
+     *
+     * @return the node id of the 'base' node
+     * @see EdgeIterator
      */
-    int fromNode();
+    int baseNode();
 
     /**
-     * @return the node id of the destination node for the current edge.
+     * @return the node id of the 'outer' node for the current edge.
+     * @see EdgeIterator
      */
     int node();
 
@@ -58,7 +68,7 @@ public interface EdgeIterator {
     double distance();
 
     int flags();
-    
+
     boolean isEmpty();
-    public static final int NO_EDGE = -1;   
+    public static final int NO_EDGE = -1;
 }

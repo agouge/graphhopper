@@ -19,7 +19,6 @@ import com.graphhopper.coll.MyBitSet;
 import com.graphhopper.coll.MyBitSetImpl;
 import com.graphhopper.geohash.KeyAlgo;
 import com.graphhopper.geohash.SpatialKeyAlgo;
-import com.graphhopper.routing.util.PrepareRoutingSubnetworks;
 import com.graphhopper.storage.Directory;
 import com.graphhopper.storage.Graph;
 import com.graphhopper.storage.GraphStorage;
@@ -53,27 +52,32 @@ public class GraphUtility {
     public static List<String> getProblems(Graph g) {
         List<String> problems = new ArrayList<String>();
         int nodes = g.getNodes();
-        for (int i = 0; i < nodes; i++) {
-            double lat = g.getLatitude(i);
-            if (lat > 90 || lat < -90)
-                problems.add("latitude is not within its bounds " + lat);
-            double lon = g.getLongitude(i);
-            if (lon > 180 || lon < -180)
-                problems.add("longitude is not within its bounds " + lon);
-            int incom = count(g.getIncoming(i));
-            int out = count(g.getOutgoing(i));
-            int e = count(g.getEdges(i));
-            if (Math.max(out, incom) > e)
-                problems.add("count incoming or outgoing edges should be maximum "
-                        + e + " but were:" + incom + "(in), " + out + "(out)");
+        int nodeIndex = 0;
+        try {
+            for (; nodeIndex < nodes; nodeIndex++) {
+                double lat = g.getLatitude(nodeIndex);
+                if (lat > 90 || lat < -90)
+                    problems.add("latitude is not within its bounds " + lat);
+                double lon = g.getLongitude(nodeIndex);
+                if (lon > 180 || lon < -180)
+                    problems.add("longitude is not within its bounds " + lon);
+                int incom = count(g.getIncoming(nodeIndex));
+                int out = count(g.getOutgoing(nodeIndex));
+                int e = count(g.getEdges(nodeIndex));
+                if (Math.max(out, incom) > e)
+                    problems.add("count incoming or outgoing edges should be maximum "
+                            + e + " but were:" + incom + "(in), " + out + "(out)");
 
-            EdgeIterator iter = g.getEdges(i);
-            while (iter.next()) {
-                if (iter.node() >= nodes)
-                    problems.add("edge of " + i + " has a node " + iter.node() + " greater or equal to getNodes");
-                if (iter.node() < 0)
-                    problems.add("edge of " + i + " has a negative node " + iter.node());
+                EdgeIterator iter = g.getEdges(nodeIndex);
+                while (iter.next()) {
+                    if (iter.node() >= nodes)
+                        problems.add("edge of " + nodeIndex + " has a node " + iter.node() + " greater or equal to getNodes");
+                    if (iter.node() < 0)
+                        problems.add("edge of " + nodeIndex + " has a negative node " + iter.node());
+                }
             }
+        } catch (Exception ex) {
+            throw new RuntimeException("problem with node " + nodeIndex, ex);
         }
 
 //        for (int i = 0; i < nodes; i++) {
@@ -130,14 +134,6 @@ public class GraphUtility {
     public static EdgeIterator until(EdgeIterator edges, int node, int flags) {
         while (edges.next()) {
             if (edges.node() == node && edges.flags() == flags)
-                return edges;
-        }
-        return EMPTY;
-    }
-
-    public static EdgeIterator until(EdgeIterator edges, int node, double distance) {
-        while (edges.next()) {
-            if (edges.node() == node && edges.distance() == distance)
                 return edges;
         }
         return EMPTY;
@@ -228,9 +224,8 @@ public class GraphUtility {
         return createSortedGraph(g, sortedGraph, list);
     }
 
-    // 
     /**
-     * Sorts according to the z-curve. Better use sortDFS as a lot memory is necessary.
+     * Sorts the graph according to the z-curve. Better use sortDFS as a lot memory is necessary.
      */
     public static Graph sort(Graph g, Graph sortedGraph, int capacity) {
         // make sure it is a square rootable number -> necessary for spatialkeyalgo
@@ -246,8 +241,8 @@ public class GraphUtility {
         };
         index.setCalcEdgeDistance(false);
         Location2IDPreciseIndex.InMemConstructionIndex idx = index.prepareInMemoryIndex(capacity);
-        final TIntList mappingList = new TIntArrayList(g.getNodes(), -1);
-        mappingList.fill(0, g.getNodes(), -1);
+        final TIntList nodeMappingList = new TIntArrayList(g.getNodes(), -1);
+        nodeMappingList.fill(0, g.getNodes(), -1);
         int counter = 0;
         int tmp = 0;
         for (int ti = 0; ti < idx.getLength(); ti++) {
@@ -257,20 +252,20 @@ public class GraphUtility {
             tmp++;
             int s = list.size();
             for (int ii = 0; ii < s; ii++) {
-                mappingList.set(list.get(ii), counter);
+                nodeMappingList.set(list.get(ii), counter);
                 counter++;
             }
         }
 
-        return createSortedGraph(g, sortedGraph, mappingList);
+        return createSortedGraph(g, sortedGraph, nodeMappingList);
     }
 
-    static Graph createSortedGraph(Graph g, Graph sortedGraph, final TIntList oldToNewList) {
-        int len = oldToNewList.size();
+    static Graph createSortedGraph(Graph g, Graph sortedGraph, final TIntList oldToNewNodeList) {
+        int len = oldToNewNodeList.size();
         // important to avoid creating two edges for edges with both directions
         MyBitSet bitset = new MyBitSetImpl(len);
         for (int old = 0; old < len; old++) {
-            int newIndex = oldToNewList.get(old);
+            int newIndex = oldToNewNodeList.get(old);
             // ignore empty entries
             if (newIndex < 0)
                 continue;
@@ -278,12 +273,12 @@ public class GraphUtility {
             sortedGraph.setNode(newIndex, g.getLatitude(old), g.getLongitude(old));
             EdgeIterator eIter = g.getEdges(old);
             while (eIter.next()) {
-                int newEdgeIndex = oldToNewList.get(eIter.node());
-                if (newEdgeIndex < 0)
+                int newNodeIndex = oldToNewNodeList.get(eIter.node());
+                if (newNodeIndex < 0)
                     throw new IllegalStateException("empty entries should be connected to the others");
-                if (bitset.contains(newEdgeIndex))
+                if (bitset.contains(newNodeIndex))
                     continue;
-                sortedGraph.edge(newIndex, newEdgeIndex, eIter.distance(), eIter.flags());
+                sortedGraph.edge(newIndex, newNodeIndex, eIter.distance(), eIter.flags());
             }
         }
         return sortedGraph;
@@ -389,7 +384,7 @@ public class GraphUtility {
             throw new UnsupportedOperationException("Not supported yet.");
         }
 
-        @Override public int fromNode() {
+        @Override public int baseNode() {
             throw new UnsupportedOperationException("Not supported yet.");
         }
 

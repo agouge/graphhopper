@@ -35,23 +35,28 @@ import java.util.List;
 @NotThreadSafe
 public class MMapDataAccess extends AbstractDataAccess {
 
-    private String location;
     private RandomAccessFile raFile;
     private List<ByteBuffer> segments = new ArrayList<ByteBuffer>();
     private ByteOrder order;
-    private float increaseFactor = 1.5f;
     private transient boolean closed = false;
 
-    // reserve the empty constructor for direct mapped memory
-    private MMapDataAccess() {
+    MMapDataAccess() {
+        this(null, null);
+        throw new IllegalStateException("reserved for direct mapped memory");
     }
 
-    public MMapDataAccess(String location) {
-        this.location = location;
+    MMapDataAccess(String name, String location) {
+        super(name, location);
+    }
+
+    private void initRandomAccessFile() {
+        if (raFile != null)
+            return;
+
         try {
-            // raFile necessary for loadExisting and alloc
-            raFile = new RandomAccessFile(location, "rw");
-        } catch (Exception x) {
+            // raFile necessary for loadExisting and createNew
+            raFile = new RandomAccessFile(getFullName(), "rw");
+        } catch (IOException x) {
             throw new RuntimeException(x);
         }
     }
@@ -60,6 +65,7 @@ public class MMapDataAccess extends AbstractDataAccess {
     public void createNew(long bytes) {
         if (!segments.isEmpty())
             throw new IllegalThreadStateException("already created");
+        initRandomAccessFile();
         bytes = Math.max(10 * 4, bytes);
         ensureCapacity(bytes);
     }
@@ -85,57 +91,56 @@ public class MMapDataAccess extends AbstractDataAccess {
 
     @Override
     public void ensureCapacity(long bytes) {
-        if (!mapIt(HEADER_OFFSET, bytes, true))
-            throw new IllegalStateException("problem while file mapping " + location);
+        mapIt(HEADER_OFFSET, bytes, true);
     }
 
-    protected boolean mapIt(long offset, long byteCount, boolean clearNew) {
+    protected void mapIt(long offset, long byteCount, boolean clearNew) {
+        if (byteCount <= capacity())
+            return;
+
+        int i = 0;
+        int buffersToMap = (int) (byteCount / segmentSizeInBytes);
+        if (byteCount % segmentSizeInBytes != 0)
+            buffersToMap++;
+        int bufferStart = 0;
         try {
-            if (byteCount <= capacity())
-                return true;
-
             raFile.setLength(offset + byteCount);
-            if (!segments.isEmpty())
-                byteCount = (long) (increaseFactor * byteCount);
-
-            // - can we really assume that this process sees its own changes immediately?
-            //   if not we need to expand instead of re-initialize
-            // - do we need to clean and release the ByteBuffer or is it even problematic?
+            // RE-MAP all buffers and add as many as needed!
             segments.clear();
-            int buffersToMap = (int) (byteCount / segmentSizeInBytes);
-            if (byteCount % segmentSizeInBytes != 0)
-                buffersToMap++;
-            int bufferStart = 0;
-            for (int i = 0; i < buffersToMap; i++) {
+            for (; i < buffersToMap; i++) {
                 int bufSize = (int) ((byteCount > (bufferStart + segmentSizeInBytes))
                         ? segmentSizeInBytes
                         : (byteCount - bufferStart));
-                segments.add(newByteBuffer(offset + bufferStart, bufSize, false));
+                segments.add(newByteBuffer(offset + bufferStart, bufSize));
                 bufferStart += bufSize;
             }
-            return true;
+
+            // IMPORTANT NOTICE regarding only the newly mapped buffers:
+            // If file length was increased clearing (copying 0 into it) is not necessary!
+            // You only have to take care that previous existing files should be removed.
         } catch (Exception ex) {
-            throw new RuntimeException(ex);
+            // we could get an exception here if buffer is too small and area too large
+            // e.g. I got an exception for the 65421th buffer (probably around 2**16 == 65536)
+            throw new RuntimeException("Couldn't map buffer " + i + " of " + buffersToMap
+                    + " at position " + bufferStart + " for " + byteCount + " bytes with offset " + offset, ex);
         }
     }
 
-    private ByteBuffer newByteBuffer(long offset, long byteCount, boolean clearNew)
+    private ByteBuffer newByteBuffer(long offset, int byteCount)
             throws IOException {
         ByteBuffer buf = raFile.getChannel().map(FileChannel.MapMode.READ_WRITE, offset, byteCount);
         if (order != null)
             buf.order(order);
 
-        // TODO
-        if (clearNew) {
-//            buf.position(oldCap);
-//            byteCount -= oldCap;
+        boolean tmp = false;
+        if (tmp) {
             int count = (int) (byteCount / EMPTY.length);
             for (int i = 0; i < count; i++) {
                 buf.put(EMPTY);
             }
             int len = (int) (byteCount % EMPTY.length);
             if (len > 0)
-                buf.put(EMPTY, 0, len);
+                buf.put(EMPTY, count * EMPTY.length, len);
         }
         return buf;
     }
@@ -146,11 +151,12 @@ public class MMapDataAccess extends AbstractDataAccess {
             if (closed)
                 return false;
 
+            initRandomAccessFile();
             long byteCount = readHeader(raFile);
             if (byteCount < 0)
                 return false;
-            if (mapIt(HEADER_OFFSET, byteCount - HEADER_OFFSET, false))
-                return true;
+            mapIt(HEADER_OFFSET, byteCount - HEADER_OFFSET, false);
+            return true;
         } catch (IOException ex) {
             // ex.printStackTrace();
         }
@@ -175,13 +181,17 @@ public class MMapDataAccess extends AbstractDataAccess {
 
     @Override
     public void close() {
+        // cleaning all ByteBuffers?
+        // Helper7.cleanMappedByteBuffer(bb);
         Helper.close(raFile);
+        segments.clear();
         closed = true;
     }
 
     @Override
     public void setInt(long intIndex, int value) {
         intIndex *= 4;
+        // TODO improve via bit operations! see RAMDataAccess
         int bufferIndex = (int) (intIndex / segmentSizeInBytes);
         int index = (int) (intIndex % segmentSizeInBytes);
         segments.get(bufferIndex).putInt(index, value);
@@ -202,11 +212,6 @@ public class MMapDataAccess extends AbstractDataAccess {
             cap += bb.capacity();
         }
         return cap;
-    }
-
-    @Override
-    public String toString() {
-        return location;
     }
 
     @Override
@@ -232,5 +237,29 @@ public class MMapDataAccess extends AbstractDataAccess {
         } catch (Exception ex) {
             throw new RuntimeException(ex);
         }
+    }
+
+    @Override
+    public boolean releaseSegment(int segNumber) {
+        ByteBuffer segment = segments.get(segNumber);
+        if (segment instanceof MappedByteBuffer)
+            ((MappedByteBuffer) segment).force();
+
+        Helper7.cleanMappedByteBuffer(segment);
+        segments.set(segNumber, null);
+        return true;
+    }
+
+    @Override
+    public void rename(String newName) {
+        if (!checkBeforeRename(newName))
+            return;
+        close();
+
+        super.rename(newName);
+        // 'reopen' with newName
+        raFile = null;
+        closed = false;
+        loadExisting();
     }
 }

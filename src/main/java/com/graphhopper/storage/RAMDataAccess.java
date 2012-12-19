@@ -27,7 +27,6 @@ import java.util.Arrays;
  */
 public class RAMDataAccess extends AbstractDataAccess {
 
-    private String id;
     private int[][] segments = new int[0][];
     private float increaseFactor = 1.5f;
     private boolean closed = false;
@@ -35,19 +34,17 @@ public class RAMDataAccess extends AbstractDataAccess {
     private transient int segmentSizeIntsPower;
     private transient int indexDivisor;
 
-    public RAMDataAccess() {
-        this("", false);
+    RAMDataAccess() {
+        this("", "", false);
     }
 
-    public RAMDataAccess(String id) {
-        this(id, false);
+    RAMDataAccess(String name) {
+        this(name, name, false);
     }
 
-    public RAMDataAccess(String id, boolean store) {
-        this.id = id;
+    RAMDataAccess(String name, String location, boolean store) {
+        super(name, location);
         this.store = store;
-        if (id == null)
-            throw new IllegalStateException("RAMDataAccess id cannot be null");
     }
 
     public RAMDataAccess setStore(boolean store) {
@@ -107,7 +104,7 @@ public class RAMDataAccess extends AbstractDataAccess {
         if (!store || closed)
             return false;
         try {
-            RandomAccessFile raFile = new RandomAccessFile(id, "r");
+            RandomAccessFile raFile = new RandomAccessFile(getFullName(), "r");
             try {
                 long byteCount = readHeader(raFile) - HEADER_OFFSET;
                 if (byteCount < 0)
@@ -144,7 +141,7 @@ public class RAMDataAccess extends AbstractDataAccess {
         if (!store)
             return;
         try {
-            RandomAccessFile raFile = new RandomAccessFile(id, "rw");
+            RandomAccessFile raFile = new RandomAccessFile(getFullName(), "rw");
             try {
                 long len = capacity();
                 writeHeader(raFile, len, segmentSizeInBytes);
@@ -164,21 +161,21 @@ public class RAMDataAccess extends AbstractDataAccess {
                 raFile.close();
             }
         } catch (Exception ex) {
-            throw new RuntimeException("Couldn't store integers to " + id, ex);
+            throw new RuntimeException("Couldn't store integers to " + toString(), ex);
         }
     }
 
     @Override
-    public void setInt(long intIndex, int value) {
-        int bufferIndex = (int) (intIndex >>> segmentSizeIntsPower);
-        int index = (int) (intIndex & indexDivisor);
+    public void setInt(long longIndex, int value) {
+        int bufferIndex = (int) (longIndex >>> segmentSizeIntsPower);
+        int index = (int) (longIndex & indexDivisor);
         segments[bufferIndex][index] = value;
     }
 
     @Override
-    public int getInt(long intIndex) {
-        int bufferIndex = (int) (intIndex >>> segmentSizeIntsPower);
-        int index = (int) (intIndex & indexDivisor);
+    public int getInt(long longIndex) {
+        int bufferIndex = (int) (longIndex >>> segmentSizeIntsPower);
+        int index = (int) (longIndex & indexDivisor);
         return segments[bufferIndex][index];
     }
 
@@ -192,11 +189,6 @@ public class RAMDataAccess extends AbstractDataAccess {
     @Override
     public long capacity() {
         return getSegments() * segmentSizeInBytes;
-    }
-
-    @Override
-    public String toString() {
-        return id;
     }
 
     @Override
@@ -221,5 +213,22 @@ public class RAMDataAccess extends AbstractDataAccess {
             remainingSegments++;
 
         segments = Arrays.copyOf(segments, remainingSegments);
+    }
+
+    @Override
+    public boolean releaseSegment(int segNumber) {
+        segments[segNumber] = null;
+        return true;
+    }
+
+    @Override
+    public void rename(String newName) {
+        if (!checkBeforeRename(newName))
+            return;
+        if (store)
+            super.rename(newName);
+
+        // in every case set the name
+        name = newName;
     }
 }

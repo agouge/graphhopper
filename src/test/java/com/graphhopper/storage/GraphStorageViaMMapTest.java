@@ -1,5 +1,5 @@
 /*
- *  Copyright 2012 Peter Karich 
+ *  Copyright 2012 Peter Karich
  * 
  *  Licensed under the Apache License, Version 2.0 (the "License");
  *  you may not use this file except in compliance with the License.
@@ -13,24 +13,29 @@
  *  See the License for the specific language governing permissions and
  *  limitations under the License.
  */
-package com.graphhopper.util;
+package com.graphhopper.storage;
+
+import com.graphhopper.util.Helper;
+import java.io.File;
+import org.junit.Before;
 
 /**
- *
- * @author Peter Karich,
+ * @author Peter Karich
  */
-public class BooleanRef {
+public class GraphStorageViaMMapTest extends AbstractGraphTester {
 
-    public boolean value;
-
-    public BooleanRef() {
+    @Override
+    public GraphStorage createGraph(int size) {
+        return new GraphStorage(new MMapDirectory(location)).setSegmentSize(size / 2).createNew(size);
     }
 
-    public BooleanRef(boolean value) {
-        this.value = value;
+    @Before
+    public void tearDown() {
+        Helper.deleteDir(new File(location));
     }
 
-    @Override public String toString() {
-        return Boolean.toString(value);
+    @Before
+    public void setUp() {
+        Helper.deleteDir(new File(location));
     }
 }

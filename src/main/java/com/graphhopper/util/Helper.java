@@ -15,6 +15,15 @@
  */
 package com.graphhopper.util;
 
+import com.graphhopper.routing.AStar;
+import com.graphhopper.routing.AStarBidirection;
+import com.graphhopper.routing.DijkstraBidirection;
+import com.graphhopper.routing.DijkstraBidirectionRef;
+import com.graphhopper.routing.DijkstraSimple;
+import com.graphhopper.routing.RoutingAlgorithm;
+import com.graphhopper.routing.util.AlgorithmPreparation;
+import com.graphhopper.routing.util.NoOpAlgorithmPreparation;
+import com.graphhopper.storage.Graph;
 import java.io.*;
 import java.nio.ByteBuffer;
 import java.nio.MappedByteBuffer;
@@ -26,7 +35,9 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 /**
+ * Several utility classes which are compatible with Java6 on Android.
  *
+ * @see Helper7 for none-Android compatible methods.
  * @author Peter Karich,
  */
 public class Helper {
@@ -238,6 +249,22 @@ public class Helper {
         }
     }
 
+    public static String readString(InputStream is, String encoding) throws IOException {
+        InputStream in = is instanceof BufferedInputStream
+                ? (BufferedInputStream) is : new BufferedInputStream(is);;
+        try {
+            byte[] buffer = new byte[4096];
+            ByteArrayOutputStream output = new ByteArrayOutputStream();
+            int numRead;
+            while ((numRead = in.read(buffer)) != -1) {
+                output.write(buffer, 0, numRead);
+            }
+            return output.toString(encoding);
+        } finally {
+            in.close();
+        }
+    }
+
     public static Object[] readSettings(String file) throws IOException {
         DataInputStream in = new DataInputStream(new FileInputStream(file));
         try {
@@ -343,6 +370,41 @@ public class Helper {
     }
 
     /**
+     * Creates a preparation wrapper for the specified algorithm. Warning/TODO: set the _graph for
+     * the instance otherwise you'll get NPE when calling createAlgo. Possible values for
+     * algorithmStr: astar (A* algorithm), astarbi (bidirectional A*) dijkstra (Dijkstra),
+     * dijkstrabi and dijkstraNative (a bit faster bidirectional Dijkstra).
+     */
+    public static AlgorithmPreparation createAlgoPrepare(final String algorithmStr) {
+        return new NoOpAlgorithmPreparation() {
+            @Override public RoutingAlgorithm createAlgo() {
+                return createAlgoFromString(_graph, algorithmStr);
+            }
+        };
+    }
+
+    /**
+     * Possible values: astar (A* algorithm), astarbi (bidirectional A*) dijkstra (Dijkstra),
+     * dijkstrabi and dijkstraNative (a bit faster bidirectional Dijkstra).
+     */
+    public static RoutingAlgorithm createAlgoFromString(Graph g, String algorithmStr) {
+        if (g == null)
+            throw new NullPointerException("You have to specify a graph different from null!");
+        RoutingAlgorithm algo;
+        if ("dijkstrabi".equalsIgnoreCase(algorithmStr))
+            algo = new DijkstraBidirectionRef(g);
+        else if ("dijkstraNative".equalsIgnoreCase(algorithmStr))
+            algo = new DijkstraBidirection(g);
+        else if ("dijkstra".equalsIgnoreCase(algorithmStr))
+            algo = new DijkstraSimple(g);
+        else if ("astarbi".equalsIgnoreCase(algorithmStr))
+            algo = new AStarBidirection(g).setApproximation(true);
+        else
+            algo = new AStar(g);
+        return algo;
+    }
+
+    /**
      * Determines if the specified ByteBuffer is one which maps to a file!
      */
     public static boolean isFileMapped(ByteBuffer bb) {
@@ -408,12 +470,11 @@ public class Helper {
             return file;
         return file.substring(0, index);
     }
-    
     /**
      * The file version is independent of the real world version. E.g. to make major version jumps
      * without the need to change the file version.
      */
-    public static final int VERSION_FILE = 1;
+    public static final int VERSION_FILE = 2;
     /**
      * The version without the snapshot string
      */

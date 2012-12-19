@@ -25,8 +25,10 @@ import org.slf4j.LoggerFactory;
 
 /**
  * This helper does not require the osm to be parsed twice but is potentially more memory intensive
- * as it stores all occuring nodes and its lat,lon. Only useful for smaller (<150km) graphs.
+ * (and also slower!?) as it stores all occuring nodes and its lat,lon. Only useful for smaller
+ * (&lt; 150km) graphs.
  *
+ * @deprecated until we fix the memory and speed problem
  * @author Peter Karich
  */
 public class OSMReaderHelperSingleParse extends OSMReaderHelper {

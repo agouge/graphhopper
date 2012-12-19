@@ -233,7 +233,6 @@ public abstract class AbstractRoutingAlgorithmTester {
         if (!Arrays.asList(36, 46, 56, 66, 76, 86, 85, 84, 94, 93, 92, 91).equals(list)
                 && !Arrays.asList(36, 46, 56, 66, 76, 86, 85, 84, 83, 82, 92, 91).equals(list))
             assertTrue("wrong locations: " + list.toString(), false);
-
         assertEquals(66f, p.weight(), 1e-3);
     }
 

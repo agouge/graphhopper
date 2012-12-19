@@ -15,44 +15,14 @@
  */
 package com.graphhopper.storage;
 
-import com.graphhopper.util.Helper;
-import java.io.File;
-import org.junit.After;
-import static org.junit.Assert.*;
-import org.junit.Before;
-import org.junit.Test;
-
 /**
  *
  * @author Peter Karich
  */
-public class RAMDirectoryTest {
+public class RAMDirectoryTest extends AbstractDirectoryTester {
 
-    String location = "./target/tmp/ramdir";
-    File file = new File(location);
-
-    @After
-    @Before
-    public void setUp() {
-        Helper.deleteDir(file);
-    }
-
-    @Test
-    public void testDataAccessSingletons() {
-        RAMDirectory dir = new RAMDirectory();
-        dir.createDataAccess("testing");
-        try {
-            dir.createDataAccess("testing");
-            assertTrue(false);
-        } catch (Exception ex) {
-        }
-    }
-
-    @Test
-    public void testNoErrorForDACreate() {
-        RAMDirectory dir = new RAMDirectory(location, true);
-        DataAccess da = dir.createDataAccess("testing");
-        da.createNew(100);
-        da.flush();
+    @Override
+    Directory createDir() {
+        return new RAMDirectory(location, true);
     }
 }

@@ -52,7 +52,7 @@ public class Path4Shortcuts extends PathBidirRef {
     }
 
     protected void handleSkippedEdge(EdgeSkipIterator iter) {
-        int from = iter.fromNode();
+        int from = iter.baseNode();
         int to = iter.node();
 
         // TODO move this swapping to expand where it belongs (necessary because of usage 'getOutgoing')
@@ -69,7 +69,7 @@ public class Path4Shortcuts extends PathBidirRef {
             success = expand(to, from, iter.skippedEdge(), true);
             if (!success)
                 throw new IllegalStateException("skipped edge " + iter.skippedEdge() + " not found for "
-                        + iter.fromNode() + "<->" + iter.node() + "? " + BitUtil.toBitString(iter.flags(), 8));
+                        + iter.baseNode() + "<->" + iter.node() + "? " + BitUtil.toBitString(iter.flags(), 8));
         }
     }
 
@@ -79,9 +79,9 @@ public class Path4Shortcuts extends PathBidirRef {
         if (tmpIter.isEmpty())
             return false;
 
-        int node = tmpIter.fromNode();
+        int node = tmpIter.baseNode();
         TIntArrayList tmpNodeList = new TIntArrayList();
-        while (true) {            
+        while (true) {
             tmpNodeList.add(node);
             tmpIter = g.getEdges(node);
             tmpIter.next();
@@ -89,7 +89,7 @@ public class Path4Shortcuts extends PathBidirRef {
                 if (!tmpIter.next())
                     throw new IllegalStateException("node should have two degree:" + node);
             }
-            
+
             avoidNode = node;
             node = tmpIter.node();
             // TODO introduce edge filter here too?

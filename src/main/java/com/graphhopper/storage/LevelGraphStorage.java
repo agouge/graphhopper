@@ -27,7 +27,11 @@ public class LevelGraphStorage extends GraphStorage implements LevelGraph {
     private final int I_LEVEL;
 
     public LevelGraphStorage(Directory dir) {
-        super(dir);
+        this(dir, dir.findCreate("nodes"), dir.findCreate("edges"));
+    }
+
+    LevelGraphStorage(Directory dir, DataAccess nodes, DataAccess edges) {
+        super(dir, nodes, edges);
         I_SKIP_EDGE = nextEdgeEntryIndex();
         I_LEVEL = nextNodeEntryIndex();
         initNodeAndEdgeEntrySize();
@@ -43,8 +47,8 @@ public class LevelGraphStorage extends GraphStorage implements LevelGraph {
         return nodes.getInt((long) index * nodeEntrySize + I_LEVEL);
     }
 
-    @Override protected GraphStorage newThis(Directory dir) {
-        return new LevelGraphStorage(dir);
+    @Override protected GraphStorage newThis(Directory dir, DataAccess nodes, DataAccess edges) {
+        return new LevelGraphStorage(dir, nodes, edges);
     }
 
     public EdgeSkipIterator newEdge(int a, int b, double distance, boolean bothDir) {
@@ -69,7 +73,7 @@ public class LevelGraphStorage extends GraphStorage implements LevelGraph {
         int newOrExistingEdge = nextEdge();
         connectNewEdge(fromNodeId, newOrExistingEdge);
         connectNewEdge(toNodeId, newOrExistingEdge);
-        writeEdge(newOrExistingEdge, fromNodeId, toNodeId, EMPTY_LINK, EMPTY_LINK, flags, dist);
+        writeEdge(newOrExistingEdge, fromNodeId, toNodeId, EMPTY_LINK, EMPTY_LINK, dist, flags);
         edges.setInt((long) newOrExistingEdge * edgeEntrySize + I_SKIP_EDGE, skippedEdge);
         return new EdgeSkipIteratorImpl(newOrExistingEdge);
     }
@@ -145,11 +149,11 @@ public class LevelGraphStorage extends GraphStorage implements LevelGraph {
         EdgeSkipIterator iter = this.getAllEdges();
         while (iter.next()) {
             System.out.println(
-                    "Start node: " + iter.fromNode()
+                    "Start node: " + iter.baseNode()
                     + ", End node: " + iter.node()
                     + ", Distance: " + (float) iter.distance()
                     + ", Skip: " + iter.skippedEdge()
-                    + ", Level: " + this.getLevel(iter.fromNode())
+                    + ", Level: " + this.getLevel(iter.baseNode())
                     + "-->" + this.getLevel(iter.node())
                     + ", Both directions: "
                     + CarStreetType.isBoth(iter.flags()));

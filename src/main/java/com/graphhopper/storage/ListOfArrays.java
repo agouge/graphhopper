@@ -18,6 +18,8 @@ package com.graphhopper.storage;
 import gnu.trove.list.array.TIntArrayList;
 
 /**
+ * List of List<Integer>
+ *
  * @author Peter Karich
  */
 public class ListOfArrays {
@@ -28,8 +30,8 @@ public class ListOfArrays {
     private int nextArrayPointer = 1;
 
     public ListOfArrays(Directory dir, String listName) {
-        this.refs = dir.createDataAccess(listName + "refs");
-        this.entries = dir.createDataAccess(listName + "entries");
+        this.refs = dir.findCreate(listName + "refs");
+        this.entries = dir.findCreate(listName + "entries");
     }
 
     public boolean loadExisting() {

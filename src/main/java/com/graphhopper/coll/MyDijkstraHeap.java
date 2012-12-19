@@ -15,6 +15,13 @@
  */
 package com.graphhopper.coll;
 
+import java.util.ArrayList;
+import java.util.Collections;
+import java.util.Comparator;
+import java.util.List;
+import java.util.Map;
+import java.util.Map.Entry;
+
 /**
  * TODO do not use if you need the update method which is broken!
  *
@@ -46,11 +53,11 @@ public class MyDijkstraHeap implements BinHeapWrapper<Number, Integer> {
     private int overflows = 0;
 
     public MyDijkstraHeap() {
-        this(128);
+        this(16, 2048, 2048);
     }
 
     public MyDijkstraHeap(int cap) {
-        this(cap < 100 ? 6 : cap / 16, cap < 100 ? 25 : cap / 4, cap < 100 ? 100 : cap);
+        this(16, 16, cap < 100 ? 100 : cap);
     }
 
     public MyDijkstraHeap(int smallCap, int midCap, int largeCap) {
@@ -73,7 +80,7 @@ public class MyDijkstraHeap implements BinHeapWrapper<Number, Integer> {
         if (!largeHeap.update_(key.intValue(), element))
             throw new IllegalStateException("cannot update key:" + key + ", element:" + element);
 
-        throw new RuntimeException("update is problematic -> see todo test!");
+//        throw new RuntimeException("update is problematic -> see todo test!");
     }
 
     public void update_(double oldKey, double key, int element) {
@@ -94,7 +101,7 @@ public class MyDijkstraHeap implements BinHeapWrapper<Number, Integer> {
                         + element + ", midMin:" + midMin);
         }
 
-        throw new RuntimeException("update is problematic -> see todo test!");
+//        throw new RuntimeException("update is problematic -> see todo test!");
     }
 
     @Override
@@ -194,6 +201,8 @@ public class MyDijkstraHeap implements BinHeapWrapper<Number, Integer> {
             int el = midHeap.poll_element();
             smallHeap.insert_(key, el);
         }
+        // TODO we need this, but test this!
+        handleMidUnderflow();
         if (midHeap.isEmpty())
             midMin = noKey;
         else
@@ -241,9 +250,11 @@ public class MyDijkstraHeap implements BinHeapWrapper<Number, Integer> {
             return false;
 
         midHeap = move(midCapacity, midHeap, largeHeap);
+        if (midHeap.isEmpty())
+            throw new IllegalStateException("something went wrong while copying into large heap!?");
+        midMin = midHeap.peek_key();
         if (largeHeap.isEmpty())
             throw new IllegalStateException("large heap wasn't filled with data from large heap!?");
-        midMin = midHeap.peek_key();
         largeMin = largeHeap.peek_key();
         overflows++;
         return true;
@@ -254,24 +265,28 @@ public class MyDijkstraHeap implements BinHeapWrapper<Number, Integer> {
 
         // put the smaller values into the 'newFrom' heap
         IntDoubleBinHeap newFrom = new IntDoubleBinHeap(capacity);
-        int max = capacity / 2;
-        for (int i = 0; i < max; i++) {
-            double key = from.peek_key();
-            int el = from.poll_element();
-            newFrom.insert_(key, el);
+        List<Entry<Double, Integer>> sortedList = new ArrayList<Entry<Double, Integer>>();
+        int len = from.size();
+        for (int i = 1; i <= len; i++) {
+            sortedList.add(new MapEntry((double) from.getKey(i), from.getElement(i)));
         }
 
-        // ... and the remaining larger ones into the 'to' heap
-        while (!from.isEmpty()) {
-            double key = from.peek_key();
-            int el = from.poll_element();
-            to.insert_(key, el);
+        Collections.sort(sortedList, comparator);
+        int mid = sortedList.size() / 2;
+        int counter = 0;
+        for (Map.Entry<Double, Integer> e : sortedList) {
+            if (counter < mid)
+                newFrom.insert_(e.getKey(), e.getValue());
+            else
+                to.insert(e.getKey(), e.getValue());
+            counter++;
         }
         return newFrom;
     }
 
     public String stats() {
         return "size:" + size()
+                + ", midMin:" + midMin + ", largeMin:" + largeMin
                 + ", smallSize: " + smallHeap.size() + "(" + smallHeap.getCapacity() + ")"
                 + ", midSize: " + midHeap.size() + "(" + midHeap.getCapacity() + ")"
                 + ", largeSize: " + largeHeap.size() + "(" + largeHeap.getCapacity() + ")"
@@ -292,5 +307,13 @@ public class MyDijkstraHeap implements BinHeapWrapper<Number, Integer> {
             return "lar " + index + " " + largeHeap.getKey(index);
 
         return "null";
+    }
+    private static EntryComparator comparator = new EntryComparator();
+
+    private static class EntryComparator implements Comparator<Entry<Double, Integer>> {
+
+        @Override public int compare(Entry<Double, Integer> o1, Entry<Double, Integer> o2) {
+            return o1.getKey().compareTo(o2.getKey());
+        }
     }
 }

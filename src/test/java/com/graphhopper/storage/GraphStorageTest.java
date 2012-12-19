@@ -15,7 +15,6 @@
  */
 package com.graphhopper.storage;
 
-import com.graphhopper.routing.util.CarStreetType;
 import com.graphhopper.util.EdgeIterator;
 import com.graphhopper.util.GraphUtility;
 import com.graphhopper.util.Helper;
@@ -32,69 +31,19 @@ import org.junit.Test;
 public class GraphStorageTest extends AbstractGraphTester {
 
     @Override
-    public Graph createGraph(int size) {
-        // reduce segment size in order to test the case where multiple segments come into the game        
-        return new GraphStorage(new RAMDirectory("graphstorage")).setSegmentSize(size / 2).createNew(size);
+    public GraphStorage createGraph(int size) {
+        return newGraph(new RAMDirectory(location)).setSegmentSize(size / 2).createNew(size);
     }
 
-    @Test
-    public void testCreateDuplicateEdges() {
-        Graph graph = createGraph(10);
-        graph.edge(2, 1, 12, true);
-        graph.edge(2, 3, 12, true);
-        graph.edge(2, 3, 13, false);
-        assertEquals(3, GraphUtility.count(graph.getOutgoing(2)));
-
-        // no exception        
-        graph.getEdgeProps(1, 3);
-        try {
-            graph.getEdgeProps(4, 3);
-            assertFalse(true);
-        } catch (Exception ex) {
-        }
-        try {
-            graph.getEdgeProps(0, 3);
-            assertFalse(true);
-        } catch (Exception ex) {
-        }
-
-        EdgeIterator iter = graph.getOutgoing(2);
-        iter.next();
-        iter.next();
-        assertTrue(iter.next());
-        EdgeIterator oneIter = graph.getEdgeProps(iter.edge(), 3);
-        assertEquals(13, oneIter.distance(), 1e-6);
-        assertEquals(2, oneIter.fromNode());
-        assertTrue(CarStreetType.isForward(oneIter.flags()));
-        assertFalse(CarStreetType.isBoth(oneIter.flags()));
-
-        oneIter = graph.getEdgeProps(iter.edge(), 2);
-        assertEquals(13, oneIter.distance(), 1e-6);
-        assertEquals(3, oneIter.fromNode());
-        assertTrue(CarStreetType.isBackward(oneIter.flags()));
-        assertFalse(CarStreetType.isBoth(oneIter.flags()));
-
-        graph.edge(3, 2, 14, true);
-        assertEquals(4, GraphUtility.count(graph.getOutgoing(2)));
-    }
-
-    @Test
-    public void testIdenticalNodes() {
-        Graph g = createGraph(2);
-        g.edge(0, 0, 100, true);
-        assertEquals(1, GraphUtility.count(g.getEdges(0)));
-
-        g = createGraph(2);
-        g.edge(0, 0, 100, false);
-        g.edge(0, 0, 100, false);
-        assertEquals(2, GraphUtility.count(g.getEdges(0)));
+    public GraphStorage newGraph(Directory dir) {
+        // reduce segment size in order to test the case where multiple segments come into the game
+        return new GraphStorage(dir);
     }
 
     @Test
     public void testSave_and_fileFormat() throws IOException {
-        String tmpDir = "./target/tmp/";
-        Helper.deleteDir(new File(tmpDir));
-        GraphStorage graph = new GraphStorage(new RAMDirectory(tmpDir, true)).createNew(10);
+        Helper.deleteDir(new File(location));
+        GraphStorage graph = newGraph(new RAMDirectory(location, true)).createNew(10);
         graph.setNode(0, 10, 10);
         graph.setNode(1, 11, 20);
         graph.setNode(2, 12, 12);
@@ -106,7 +55,7 @@ public class GraphStorageTest extends AbstractGraphTester {
         checkGraph(graph);
         graph.flush();
 
-        graph = new GraphStorage(new MMapDirectory(tmpDir));
+        graph = newGraph(new MMapDirectory(location));
         assertTrue(graph.loadExisting());
         assertEquals(3, graph.getNodes());
         assertEquals(3, graph.getNodes());
@@ -136,7 +85,7 @@ public class GraphStorageTest extends AbstractGraphTester {
 
     @Test
     public void testGetAllEdges() {
-        GraphStorage g = new GraphStorage(new RAMDirectory()).createNew(10);
+        GraphStorage g = newGraph(new RAMDirectory()).createNew(10);
         g.edge(0, 1, 2, true);
         g.edge(3, 1, 1, false);
         g.edge(3, 2, 1, false);
@@ -144,18 +93,18 @@ public class GraphStorageTest extends AbstractGraphTester {
         EdgeIterator iter = g.getAllEdges();
         assertTrue(iter.next());
         int edgeId = iter.edge();
-        assertEquals(0, iter.fromNode());
+        assertEquals(0, iter.baseNode());
         assertEquals(1, iter.node());
         assertEquals(2, iter.distance(), 1e-6);
 
         assertTrue(iter.next());
         int edgeId2 = iter.edge();
         assertEquals(1, edgeId2 - edgeId);
-        assertEquals(1, iter.fromNode());
+        assertEquals(1, iter.baseNode());
         assertEquals(3, iter.node());
 
         assertTrue(iter.next());
-        assertEquals(2, iter.fromNode());
+        assertEquals(2, iter.baseNode());
         assertEquals(3, iter.node());
 
         assertFalse(iter.next());

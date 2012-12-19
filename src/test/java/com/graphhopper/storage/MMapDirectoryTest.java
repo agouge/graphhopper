@@ -15,27 +15,14 @@
  */
 package com.graphhopper.storage;
 
-import com.graphhopper.util.EdgeWriteIterator;
-
 /**
- * Interface to allow writing to an edge via the EdgeWriteIterator.
  *
  * @author Peter Karich
  */
-public interface WritableGraph extends Graph {
+public class MMapDirectoryTest extends AbstractDirectoryTester {
 
     @Override
-    EdgeWriteIterator getEdgeProps(int edgeId, int endNode);
-
-    @Override
-    EdgeWriteIterator getEdges(int nodeId);
-
-    @Override
-    EdgeWriteIterator getIncoming(int nodeId);
-
-    @Override
-    EdgeWriteIterator getOutgoing(int nodeId);
-
-    @Override
-    EdgeWriteIterator getAllEdges();
+    Directory createDir() {
+        return new MMapDirectory(location);
+    }
 }
