@@ -9,3 +9,5 @@ docs/
 loc2idIndex/
 nbactions-*.xml
 config.properties
+files/loire_atlantique_1_edges.csv
+files/nantes_1_edges.csv
