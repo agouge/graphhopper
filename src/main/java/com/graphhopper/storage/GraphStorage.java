@@ -23,6 +23,7 @@ import com.graphhopper.util.EdgeWriteIterator;
 import com.graphhopper.util.GraphUtility;
 import com.graphhopper.util.Helper;
 import com.graphhopper.util.shapes.BBox;
+import gnu.trove.iterator.TIntIterator;
 import gnu.trove.map.hash.TIntIntHashMap;
 import gnu.trove.set.hash.TIntHashSet;
 
@@ -306,22 +307,58 @@ public class GraphStorage implements WritableGraph, Storable {
         return new SingleEdge(edgePointer);
     }
 
+    public void printIncomingEdges(int node) {
+        EdgeWriteIterator incomingEdge = getIncoming(node);
+        getEdges(node);
+        System.out.println("Incoming edges of " + node);
+        while (incomingEdge.next()) {
+            System.out.println(
+                    "Start node: " + incomingEdge.node()
+                    + ", End node: " + incomingEdge.fromNode()
+                    + ", Distance: " + incomingEdge.distance()
+                    + ", Both directions: "
+                    + CarStreetType.isBoth(incomingEdge.flags()));
+        }
+    }
+
+    public void printOutgoingEdges(int node) {
+        EdgeWriteIterator outgoingEdge = getOutgoing(node);
+        System.out.println("Outgoing edges of " + node);
+        while (outgoingEdge.next()) {
+            System.out.println(
+                    "Start node: " + outgoingEdge.fromNode()
+                    + ", End node: " + outgoingEdge.node()
+                    + ", Distance: " + outgoingEdge.distance()
+                    + ", Both directions: "
+                    + CarStreetType.isBoth(outgoingEdge.flags()));
+        }
+    }
+
     /**
      * Print out the edges of this graph, including the start node, end node,
      * distance, and whether the edge is bidirectional.
      */
     @Override
     public void printEdges() {
-        EdgeWriteIterator iter = this.getAllEdges();
-        while (iter.next()) {
-            System.out.println(
-                    "Start node: " + iter.fromNode()
-                    + ", End node: " + iter.node()
-                    + ", Distance: " + (float) iter.distance()
-                    + ", Both directions:" + CarStreetType.isBoth(iter.
-                    flags()));
+        TIntHashSet nodeSet = nodeSet();
+        TIntIterator nodeIterator = nodeSet.iterator();
+        while (nodeIterator.hasNext()) {
+            int node = nodeIterator.next();
+            printIncomingEdges(node);
+            printOutgoingEdges(node);
+            System.out.println();
         }
     }
+//        EdgeWriteIterator iter = this.getAllEdges();
+//        while (iter.next()) {
+//            System.out.println(
+//                    "Start node: " + iter.fromNode()
+//                    + ", End node: " + iter.node()
+//                    + ", Distance: " + (float) iter.distance()
+//                    + ", Both directions:" + CarStreetType.isBoth(iter.
+//                    flags()));
+//        }
+//    }
 
     /**
      * Returns a {@link TIntHashSet} of nodes of this graph.
