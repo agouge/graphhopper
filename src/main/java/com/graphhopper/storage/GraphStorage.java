@@ -321,26 +321,36 @@ public class GraphStorage implements Graph, Storable {
         return new SingleEdge(edgePointer);
     }
 
+    /**
+     * Prints the incoming edges of the given node.
+     *
+     * @param node The node whose incoming edges are to be printed.
+     */
+    // Note: for an incoming edge, node() gives the source node.
     public void printIncomingEdges(int node) {
         EdgeWriteIterator incomingEdge = getIncoming(node);
         getEdges(node);
-        System.out.println("Incoming edges of " + node);
         while (incomingEdge.next()) {
             System.out.println(
                     "Start node: " + incomingEdge.node()
-                    + ", End node: " + incomingEdge.baseNode()
+                    + ", End node: " + node
                     + ", Distance: " + incomingEdge.distance()
                     + ", Both directions: "
                     + CarStreetType.isBoth(incomingEdge.flags()));
         }
     }
 
+    /**
+     * Prints the outgoing edges of the given node.
+     *
+     * @param node The node whose outgoing edges are to be printed.
+     */
+    // Note: for an outgoing edge, node() gives the destination node.
     public void printOutgoingEdges(int node) {
         EdgeWriteIterator outgoingEdge = getOutgoing(node);
-        System.out.println("Outgoing edges of " + node);
         while (outgoingEdge.next()) {
             System.out.println(
-                    "Start node: " + outgoingEdge.baseNode()
+                    "Start node: " + node
                     + ", End node: " + outgoingEdge.node()
                     + ", Distance: " + outgoingEdge.distance()
                     + ", Both directions: "
@@ -358,9 +368,10 @@ public class GraphStorage implements Graph, Storable {
         TIntIterator nodeIterator = nodeSet.iterator();
         while (nodeIterator.hasNext()) {
             int node = nodeIterator.next();
-            printIncomingEdges(node);
+            // We can either print the incoming edges of every node,
+            // or equivalently, print the outgoing edges of every node.
+//            printIncomingEdges(node);
             printOutgoingEdges(node);
-            System.out.println();
         }
     }
 //        EdgeWriteIterator iter = this.getAllEdges();
