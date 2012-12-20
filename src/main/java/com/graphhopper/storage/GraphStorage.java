@@ -329,7 +329,6 @@ public class GraphStorage implements Graph, Storable {
     // Note: for an incoming edge, node() gives the source node.
     public void printIncomingEdges(int node) {
         EdgeWriteIterator incomingEdge = getIncoming(node);
-        getEdges(node);
         while (incomingEdge.next()) {
             System.out.println(
                     "Start node: " + incomingEdge.node()

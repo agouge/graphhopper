@@ -17,6 +17,9 @@ package com.graphhopper.storage;
 
 import com.graphhopper.routing.util.CarStreetType;
 import com.graphhopper.util.EdgeSkipIterator;
+import com.graphhopper.util.EdgeWriteIterator;
+import gnu.trove.iterator.TIntIterator;
+import gnu.trove.set.hash.TIntHashSet;
 
 /**
  * @author Peter Karich
@@ -140,26 +143,67 @@ public class LevelGraphStorage extends GraphStorage implements LevelGraph {
     }
 
     /**
+     * Prints the incoming edges of the given node.
+     *
+     * @param node The node whose incoming edges are to be printed.
+     */
+    // Note: for an incoming edge, node() gives the source node.
+    @Override
+    public void printIncomingEdges(int node) {
+        EdgeSkipIterator incomingEdge = getIncoming(node);
+        while (incomingEdge.next()) {
+            System.out.println(
+                    "Start node: " + incomingEdge.node()
+                    + ", End node: " + node
+                    + ", Distance: " + (float) incomingEdge.distance()
+                    + ", Skip: " + incomingEdge.skippedEdge()
+                    + ", Level: " + this.getLevel(incomingEdge.baseNode())
+                    + "-->" + this.getLevel(incomingEdge.node())
+                    + ", Both directions: "
+                    + CarStreetType.isBoth(incomingEdge.flags()));
+        }
+    }
+
+    /**
+     * Prints the outgoing edges of the given node.
+     *
+     * @param node The node whose outgoing edges are to be printed.
+     */
+    // Note: for an outgoing edge, node() gives the destination node.
+    @Override
+    public void printOutgoingEdges(int node) {
+        EdgeSkipIterator outgoingEdge = getOutgoing(node);
+        while (outgoingEdge.next()) {
+            System.out.println(
+                    "Start node: " + node
+                    + ", End node: " + outgoingEdge.node()
+                    + ", Distance: " + (float) outgoingEdge.distance()
+                    + ", Skip: " + outgoingEdge.skippedEdge()
+                    + ", Level: " + this.getLevel(outgoingEdge.baseNode())
+                    + "-->" + this.getLevel(outgoingEdge.node())
+                    + ", Both directions: "
+                    + CarStreetType.isBoth(outgoingEdge.flags()));
+        }
+    }
+
+    /**
      * Print out the edges of this graph, including the start node, end node,
      * distance, whether the edges is skipped, the from and to levels,
      * and whether the edges is bidirectional.
      */
     @Override
     public void printEdges() {
-        EdgeSkipIterator iter = this.getAllEdges();
-        while (iter.next()) {
-            System.out.println(
-                    "Start node: " + iter.baseNode()
-                    + ", End node: " + iter.node()
-                    + ", Distance: " + (float) iter.distance()
-                    + ", Skip: " + iter.skippedEdge()
-                    + ", Level: " + this.getLevel(iter.baseNode())
-                    + "-->" + this.getLevel(iter.node())
-                    + ", Both directions: "
-                    + CarStreetType.isBoth(iter.flags()));
+        TIntHashSet nodeSet = nodeSet();
+        TIntIterator nodeIterator = nodeSet.iterator();
+        while (nodeIterator.hasNext()) {
+            int node = nodeIterator.next();
+            // We can either print the incoming edges of every node,
+            // or equivalently, print the outgoing edges of every node.
+//            printIncomingEdges(node);
+            printOutgoingEdges(node);
         }
     }
-
+    
     public class AllEdgeSkipIterator extends AllEdgeIterator implements EdgeSkipIterator {
 
         @Override public void skippedEdge(int node) {
