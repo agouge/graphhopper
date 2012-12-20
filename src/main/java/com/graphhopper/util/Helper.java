@@ -24,6 +24,7 @@ import com.graphhopper.routing.RoutingAlgorithm;
 import com.graphhopper.routing.util.AlgorithmPreparation;
 import com.graphhopper.routing.util.NoOpAlgorithmPreparation;
 import com.graphhopper.storage.Graph;
+import com.graphhopper.util.shapes.BBox;
 import java.io.*;
 import java.nio.ByteBuffer;
 import java.nio.MappedByteBuffer;
@@ -93,7 +94,7 @@ public class Helper {
     public static List<String> readFile(Reader simpleReader) throws IOException {
         BufferedReader reader = new BufferedReader(simpleReader);
         try {
-            List<String> res = new ArrayList();
+            List<String> res = new ArrayList<String>();
             String line;
             while ((line = reader.readLine()) != null) {
                 res.add(line);
@@ -462,6 +463,13 @@ public class Helper {
             Helper.deleteDir(from);
 
         return true;
+    }
+
+    public static int calcIndexSize(BBox graphBounds) {
+        double dist = new DistanceCalc().calcDist(graphBounds.maxLat, graphBounds.minLon, graphBounds.minLat, graphBounds.maxLon);
+        // convert to km and maximum 5000km => 25mio capacity, minimum capacity is 2000
+        dist = Math.min(dist / 1000, 5000);
+        return Math.max(2000, (int) (dist * dist));
     }
 
     public static String pruneFileEnd(String file) {

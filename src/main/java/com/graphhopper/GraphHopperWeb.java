@@ -16,7 +16,7 @@
 package com.graphhopper;
 
 import com.graphhopper.util.StopWatch;
-import com.graphhopper.util.shapes.GeoPoint;
+import com.graphhopper.util.shapes.GHPoint;
 import java.io.DataInputStream;
 import java.io.IOException;
 import java.io.InputStream;
@@ -39,13 +39,11 @@ public class GraphHopperWeb implements GraphHopperAPI {
 
     public static void main(String[] args) {
         GraphHopperAPI gh = new GraphHopperWeb().load("http://217.92.216.224:8080/api");
-        PathHelper ph = gh.route(new GeoPoint(53.080827, 9.074707), new GeoPoint(50.597186, 11.184082));
+        GHResponse ph = gh.route(new GHRequest(53.080827, 9.074707, 50.597186, 11.184082));
         System.out.println(ph);
     }
     private Logger logger = LoggerFactory.getLogger(getClass());
     private String serviceUrl;
-    private String algo;
-    private double minPathPrecision;
 
     public GraphHopperWeb() {
     }
@@ -59,36 +57,26 @@ public class GraphHopperWeb implements GraphHopperAPI {
         return this;
     }
 
-    @Override
-    public GraphHopperWeb algorithm(String algo) {
-        this.algo = algo;
-        return this;
-    }
-
-    @Override
-    public GraphHopperWeb minPathPrecision(double precision) {
-        minPathPrecision = precision;
-        return this;
-    }
-
     // TODO
-//    public String whatIsHere(GeoPoint point) {
+//    public String whatIsHere(GHPoint point) {
 //        return "address";
 //    }
-//    public GeoPoint findAddress(String from) {
-//        return new GeoPoint(lat, lon);
+//    public GHPoint findAddress(String from) {
+//        return new GHPoint(lat, lon);
 //    }
     @Override
-    public PathHelper route(GeoPoint from, GeoPoint to) {
+    public GHResponse route(GHRequest request) {
+        request.check();
         StopWatch sw = new StopWatch().start();
         float took = 0;
         try {
+
             String url = serviceUrl
-                    + "?from=" + from.lat + "," + from.lon
-                    + "&to=" + to.lat + "," + to.lon
+                    + "?from=" + request.from().lat + "," + request.from().lon
+                    + "&to=" + request.to().lat + "," + request.to().lon
                     + "&type=bin"
-                    + "&minPathPrecision=" + minPathPrecision
-                    + "&algo=" + algo;
+                    + "&minPathPrecision=" + request.minPathPrecision()
+                    + "&algo=" + request.algorithm();
             DataInputStream is = new DataInputStream(fetch(url));
             int magix = is.readInt();
             if (magix != 123456)
@@ -98,15 +86,15 @@ public class GraphHopperWeb implements GraphHopperAPI {
             float distance = is.readFloat();
             int time = is.readInt();
             int nodes = is.readInt();
-            List<GeoPoint> list = new ArrayList<GeoPoint>(nodes);
+            List<GHPoint> list = new ArrayList<GHPoint>(nodes);
             for (int i = 0; i < nodes; i++) {
                 float lat = is.readFloat();
                 float lon = is.readFloat();
-                list.add(new GeoPoint(lat, lon));
+                list.add(new GHPoint(lat, lon));
             }
-            return new PathHelper(list).distance(distance).time(time);
+            return new GHResponse(list).distance(distance).time(time);
         } catch (IOException ex) {
-            throw new RuntimeException("Problem while fetching path " + from + "->" + to, ex);
+            throw new RuntimeException("Problem while fetching path " + request.from() + "->" + request.to(), ex);
         } finally {
             logger.info("Full request took:" + sw.stop().getSeconds() + ", API took:" + took);
         }

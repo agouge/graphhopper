@@ -15,23 +15,26 @@
  */
 package com.graphhopper;
 
-import com.graphhopper.util.shapes.GeoPoint;
+import com.graphhopper.util.shapes.GHPoint;
 import java.util.List;
 
 /**
+ * Wrapper to simplify output of GraphHopper.
+ *
  * @author Peter Karich
  */
-public class PathHelper {
+public class GHResponse {
 
-    private final List<GeoPoint> list;
+    private final List<GHPoint> list;
     private double distance;
     private long time;
+    private String debugInfo = "";
 
-    public PathHelper(List<GeoPoint> list) {
+    public GHResponse(List<GHPoint> list) {
         this.list = list;
     }
 
-    public PathHelper distance(double distance) {
+    public GHResponse distance(double distance) {
         this.distance = distance;
         return this;
     }
@@ -40,7 +43,7 @@ public class PathHelper {
         return distance;
     }
 
-    public PathHelper time(long time) {
+    public GHResponse time(long time) {
         this.time = time;
         return this;
     }
@@ -53,8 +56,17 @@ public class PathHelper {
         return !list.isEmpty();
     }
 
-    public List<GeoPoint> points() {
+    public List<GHPoint> points() {
         return list;
+    }
+
+    public String debugInfo() {
+        return debugInfo;
+    }
+
+    public GHResponse debugInfo(String debugInfo) {
+        this.debugInfo = debugInfo;
+        return this;
     }
 
     @Override
